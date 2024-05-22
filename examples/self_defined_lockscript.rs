@@ -26,12 +26,14 @@ use ckb_types::{
 use std::env;
 use std::error::{Error as StdErr, Error};
 use std::str::FromStr;
+use std::thread::sleep;
+use std::time::Duration;
 use xudt_manager::{handler::XudtHandler, XudtTransactionBuilder};
 
 const UNIQUE_ARGS_SIZE: usize = 20;
 const ISSUE_DECIMAL: u8 = 8;
-const ISSUE_NAME: &'static str = "XUDT Test T Token";
-const ISSUE_SYMBOL: &'static str = "XTTT";
+const ISSUE_NAME: &'static str = "XUDT Test H Token";
+const ISSUE_SYMBOL: &'static str = "XTHT";
 const ISSUE_AMOUNT: u128 = 2100_000;
 
 fn main() -> Result<(), Box<dyn StdErr>> {
@@ -61,6 +63,8 @@ fn main() -> Result<(), Box<dyn StdErr>> {
         )
     };
 
+    let receiver= Address::from_str("ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqge2zf8qmuyffyttlqqgdjn0wlgtqarq4qsl00us")?;
+
     println!("sender_addr: {}", issue_addr);
 
     let mut cell_collector = DefaultCellCollector::new(&network_info.url);
@@ -89,7 +93,7 @@ fn main() -> Result<(), Box<dyn StdErr>> {
         .build();
 
     let xudt_out_cell = CellOutput::new_builder()
-        .lock(issue_lock_script.clone())
+        .lock((&receiver).into())
         .type_(Some(xudt_type).pack())
         .build_exact_capacity(Capacity::bytes(16).unwrap())?;
 
@@ -105,8 +109,14 @@ fn main() -> Result<(), Box<dyn StdErr>> {
         .type_(Some(unique_type_script_without_args.clone()).pack())
         .build_exact_capacity(Capacity::bytes(encode_token_info().len()).unwrap())?;
 
-    let min_total_capacity = <Uint64 as Unpack<u64>>::unpack(&xudt_out_cell.capacity())
+    let change_out_cell = CellOutput::new_builder()
+        .lock(issue_lock_script.clone())
+        .build();
+
+    let min_total_capacity =
+        <Uint64 as Unpack<u64>>::unpack(&xudt_out_cell.capacity())
         + <Uint64 as Unpack<u64>>::unpack(&dump_unique_out_cell.capacity())
+        + <Uint64 as Unpack<u64>>::unpack(&change_out_cell.capacity())
         + Capacity::bytes(20).unwrap().as_u64() // unique args len 20
         + 1000;
 
@@ -123,14 +133,16 @@ fn main() -> Result<(), Box<dyn StdErr>> {
         )
         .build();
 
-    // let ckb_tx = build_self_defined_lock_script_ckb_tx(
-    //     min_total_capacity,
-    //     vec![issue_private_key.clone()],
-    //     issue_lock_script.clone(),
-    //     network_info.clone(),
-    //     self_defiened_lockscript.clone(),
-    //         udt_info_lockscript_dec.clone()
-    // ).unwrap();
+    let ckb_tx = build_self_defined_lock_script_ckb_tx(
+        min_total_capacity,
+        vec![issue_private_key.clone()],
+        issue_lock_script.clone(),
+        network_info.clone(),
+        self_defiened_lockscript.clone(),
+            udt_info_lockscript_dec.clone()
+    ).unwrap();
+
+    sleep(Duration::from_secs(60));
 
     let ckb_query = {
         let mut query = CellQueryOptions::new_lock(self_defiened_lockscript.clone());
@@ -161,7 +173,7 @@ fn main() -> Result<(), Box<dyn StdErr>> {
             )
             .pack(),
         )
-        .build();
+        .build_exact_capacity(Capacity::bytes(encode_token_info().len()).unwrap())?;
 
     for cell in ckb_cells {
         issue_xudt_builder.add_input(
@@ -177,6 +189,8 @@ fn main() -> Result<(), Box<dyn StdErr>> {
     issue_xudt_builder.add_output_and_data(xudt_out_cell, issue_amount.to_le_bytes().pack());
 
     issue_xudt_builder.add_output_and_data(unique_out_cell, encode_token_info().pack());
+
+    issue_xudt_builder.add_output_and_data(change_out_cell, Default::default());
 
     issue_xudt_builder.add_cell_deps(vec![
         CellDep::new_builder()

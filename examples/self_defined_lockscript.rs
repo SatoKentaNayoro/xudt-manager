@@ -1,13 +1,19 @@
-use std::collections::HashMap;
 use ckb_hash::{blake2b_256, new_blake2b};
-use ckb_sdk::transaction::input::{InputIterator, TransactionInput};
-use ckb_sdk::{constants::SIGHASH_TYPE_HASH, traits::{CellCollector, CellQueryOptions, DefaultCellCollector, ValueRangeOption}, transaction::{
-    builder::CkbTransactionBuilder,
-    signer::{SignContexts, TransactionSigner},
-    TransactionBuilderConfiguration,
-}, {Address, AddressPayload, CkbRpcClient, NetworkInfo, SECP256K1}, ScriptId, NetworkType, ScriptGroup};
-use ckb_types::core::{BlockView, Capacity};
-use ckb_types::packed::{Byte, RawTransactionBuilder, Uint64, WitnessArgs};
+use ckb_jsonrpc_types::{TransactionView, Uint32};
+use ckb_sdk::transaction::input::TransactionInput;
+use ckb_sdk::unlock::ScriptUnlocker;
+use ckb_sdk::{
+    constants::SIGHASH_TYPE_HASH,
+    traits::{CellCollector, CellQueryOptions, DefaultCellCollector, ValueRangeOption},
+    transaction::{
+        builder::CkbTransactionBuilder,
+        signer::{SignContexts, TransactionSigner},
+        TransactionBuilderConfiguration,
+    },
+    {Address, AddressPayload, CkbRpcClient, NetworkInfo, SECP256K1},
+};
+use ckb_types::core:: Capacity;
+use ckb_types::packed::Uint64;
 use ckb_types::prelude::Unpack;
 use ckb_types::{
     bytes::Bytes,
@@ -20,8 +26,6 @@ use ckb_types::{
 use std::env;
 use std::error::{Error as StdErr, Error};
 use std::str::FromStr;
-use ckb_jsonrpc_types::{TransactionView, Uint32};
-use ckb_sdk::unlock::{ScriptUnlocker};
 use xudt_manager::{handler::XudtHandler, XudtTransactionBuilder};
 
 const UNIQUE_ARGS_SIZE: usize = 20;
@@ -69,7 +73,9 @@ fn main() -> Result<(), Box<dyn StdErr>> {
     );
 
     let self_defiened_lockscript = Script::new_builder()
-        .code_hash(h256!("0x733e5936c2e64772ff99b5f95d19a6ace0d99401c275a3619b1887eb11f81795").pack())
+        .code_hash(
+            h256!("0x733e5936c2e64772ff99b5f95d19a6ace0d99401c275a3619b1887eb11f81795").pack(),
+        )
         .hash_type(ScriptHashType::Type.into())
         .args(encode_token_info().pack())
         .build();
@@ -153,7 +159,7 @@ fn main() -> Result<(), Box<dyn StdErr>> {
                     ))
                     .build(),
             )
-                .pack(),
+            .pack(),
         )
         .build();
 
@@ -241,7 +247,8 @@ fn build_self_defined_lock_script_ckb_tx(
     self_defined_lock_script_dep: CellDep,
 ) -> Result<TransactionView, Box<dyn Error>> {
     let mut cell_collector = DefaultCellCollector::new(&network_info.url);
-    let mut configuration = TransactionBuilderConfiguration::new_with_network(network_info.clone())?;
+    let mut configuration =
+        TransactionBuilderConfiguration::new_with_network(network_info.clone())?;
     configuration
         .register_script_handler(Box::new(XudtHandler::new_with_network(&network_info)?) as Box<_>);
 
@@ -279,12 +286,15 @@ fn build_self_defined_lock_script_ckb_tx(
         .capacity(capacity.pack())
         .build();
 
-    builder.add_output_and_data(output,Default::default());
+    builder.add_output_and_data(output, Default::default());
     builder.add_cell_dep(self_defined_lock_script_dep);
 
     let mut tx_with_groups = builder.build(&Default::default())?;
     let json_tx = ckb_jsonrpc_types::TransactionView::from(tx_with_groups.get_tx_view().clone());
-    println!("self_defined_lock_script_ckb_tx: {}", serde_json::to_string_pretty(&json_tx).unwrap());
+    println!(
+        "self_defined_lock_script_ckb_tx: {}",
+        serde_json::to_string_pretty(&json_tx).unwrap()
+    );
 
     TransactionSigner::new(&network_info).sign_transaction(
         &mut tx_with_groups,
@@ -292,7 +302,10 @@ fn build_self_defined_lock_script_ckb_tx(
     )?;
 
     let json_tx = ckb_jsonrpc_types::TransactionView::from(tx_with_groups.get_tx_view().clone());
-    println!("self_defined_lock_script_ckb_tx: {}", serde_json::to_string_pretty(&json_tx).unwrap());
+    println!(
+        "self_defined_lock_script_ckb_tx: {}",
+        serde_json::to_string_pretty(&json_tx).unwrap()
+    );
 
     let tx_hash = CkbRpcClient::new(network_info.url.as_str())
         .send_transaction(json_tx.clone().inner, None)
@@ -320,20 +333,26 @@ fn encode_token_info() -> Vec<u8> {
         &[ISSUE_SYMBOL.len() as u8],
         ISSUE_SYMBOL.as_bytes(),
     ]
-        .concat()
+    .concat()
 }
 
 #[test]
 fn load_tx_info() {
     let network_info = NetworkInfo::testnet();
     let client = CkbRpcClient::new(network_info.url.as_str());
-    let result = client.get_live_cell(
-        OutPoint::new_builder()
-            .index(Uint32::from(0).pack())
-            .tx_hash(h256!("0x3cf494e6da5858047a456825c40f9c784710dfc69006abbcffaffbabb6cd5097").pack())
-            .build().into(),
-        true
-    ).unwrap();
+    let result = client
+        .get_live_cell(
+            OutPoint::new_builder()
+                .index(Uint32::from(0).pack())
+                .tx_hash(
+                    h256!("0x3cf494e6da5858047a456825c40f9c784710dfc69006abbcffaffbabb6cd5097")
+                        .pack(),
+                )
+                .build()
+                .into(),
+            true,
+        )
+        .unwrap();
     let cell = result.cell.unwrap();
     println!("output.type_ {:?}", cell.output.type_);
     println!("output.lock {:?}", cell.output.lock);

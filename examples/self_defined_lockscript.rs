@@ -28,6 +28,8 @@ use std::error::{Error as StdErr, Error};
 use std::str::FromStr;
 use std::thread::sleep;
 use std::time::Duration;
+use ckb_sdk::rpc::ckb_indexer::SearchMode;
+use ckb_sdk::traits::PrimaryScriptType;
 use xudt_manager::{handler::XudtHandler, XudtTransactionBuilder};
 
 const UNIQUE_ARGS_SIZE: usize = 20;
@@ -371,4 +373,34 @@ fn load_tx_info() {
     println!("output.type_ {:?}", cell.output.type_);
     println!("output.lock {:?}", cell.output.lock);
     println!("output.capacity {:?}", cell.output.capacity)
+}
+
+#[test]
+fn test_collect_cells() {
+    let network_info = NetworkInfo::testnet();
+    let mut cell_collector = DefaultCellCollector::new(&network_info.url);
+    let address = Address::from_str("ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqd3jr8p6spmhkl99r8mv8tqvd7lf5a5fjqv59khd").unwrap();
+    let unique_type_script = Script::new_builder()
+        .code_hash(
+            h256!("0x8e341bcfec6393dcd41e635733ff2dca00a6af546949f70c57a706c0f344df8b").pack(),
+        )
+        .hash_type(ScriptHashType::Type.into())
+        .args(generate_unique_type_args(
+            CellInput::new_builder()
+                .previous_output(OutPoint::new_builder().tx_hash(h256!("0x7530ded4f93b7835632e7a7cc6552fc980080975581c3d78b1dbfbad75ccb691").pack()).index(2u32.pack()).build())
+                .build(),
+            1,
+        ))
+        .build();
+
+    let ckb_query = {
+        let mut query = CellQueryOptions::new_lock((&address).into());
+        query.script_search_mode = Some(SearchMode::Exact);
+        // query.secondary_script = Some(unique_type_script);
+        // query.min_total_capacity = 100000;
+        query
+    };
+
+    let result = cell_collector.collect_live_cells(&ckb_query, true).unwrap();
+    println!("{:?}",result)
 }

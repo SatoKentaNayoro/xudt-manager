@@ -34,8 +34,8 @@ use xudt_manager::{handler::XudtHandler, XudtTransactionBuilder};
 
 const UNIQUE_ARGS_SIZE: usize = 20;
 const ISSUE_DECIMAL: u8 = 8;
-const ISSUE_NAME: &'static str = "XUDT Test H Token";
-const ISSUE_SYMBOL: &'static str = "XTHT";
+const ISSUE_NAME: &'static str = "XUDT Test U Token";
+const ISSUE_SYMBOL: &'static str = "XTUT";
 const ISSUE_AMOUNT: u128 = 2100_000;
 
 fn main() -> Result<(), Box<dyn StdErr>> {
@@ -403,4 +403,39 @@ fn test_collect_cells() {
 
     let result = cell_collector.collect_live_cells(&ckb_query, true).unwrap();
     println!("{:?}",result)
+}
+
+#[test]
+fn test_script_hash() {
+    let network_info = NetworkInfo::testnet();
+
+    let issue_private_key_words = env::var("ISSUE_PRIVATE_KEY").unwrap();
+    let issue_private_key = H256::from_str(issue_private_key_words.as_ref()).unwrap();
+
+    let (issue_lock_script, issue_addr) = {
+        let secret_key = secp256k1::SecretKey::from_slice(issue_private_key.clone().as_bytes())
+            .map_err(|err| format!("invalid sender secret key: {}", err)).unwrap();
+
+        let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &secret_key);
+        let hash160 = blake2b_256(&pubkey.serialize()[..])[0..20].to_vec();
+        let payload = AddressPayload::from_pubkey(&pubkey);
+        println!("Bytes::from(hash160).pack(): {:?}", Bytes::from(hash160.clone()).pack().as_slice());
+        (
+            Script::new_builder()
+                .code_hash(SIGHASH_TYPE_HASH.pack())
+                .hash_type(ScriptHashType::Type.into())
+                .args(Bytes::from(hash160).pack())
+                .build(),
+            Address::new(network_info.network_type, payload, true),
+        )
+    };
+    println!("hash: {:?}", issue_lock_script.calc_script_hash().as_slice());
+    println!("addr: {}", issue_addr);
+    println!("xudt code hash: {:?}",Script::new_builder()
+        .code_hash(
+            h256!("0x25c29dc317811a6f6f3985a7a9ebc4838bd388d19d0feeecf0bcd60f6c0975bb").pack(),
+        )
+        .hash_type(ScriptHashType::Type.into())
+        .args(Default::default())
+        .build().code_hash().as_slice())
 }

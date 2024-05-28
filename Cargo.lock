@@ -543,7 +543,7 @@ dependencies = [
  "goblin 0.2.3",
  "goblin 0.4.0",
  "rand",
- "scroll",
+ "scroll 0.10.2",
  "serde",
 ]
 
@@ -940,7 +940,7 @@ checksum = "d20fd25aa456527ce4f544271ae4fea65d2eda4a6561ea56f39fb3ee4f7e3884"
 dependencies = [
  "log",
  "plain",
- "scroll",
+ "scroll 0.10.2",
 ]
 
 [[package]]
@@ -951,7 +951,7 @@ checksum = "532a09cd3df2c6bbfc795fb0434bff8f22255d1d07328180e918a2e6ce122d4d"
 dependencies = [
  "log",
  "plain",
- "scroll",
+ "scroll 0.10.2",
 ]
 
 [[package]]
@@ -1752,6 +1752,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "scroll"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ab8598aa408498679922eff7fa985c25d58a90771bd6be794434c5277eab1a6"
+
+[[package]]
 name = "scroll_derive"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2544,6 +2550,7 @@ dependencies = [
  "ckb-jsonrpc-types",
  "ckb-sdk",
  "ckb-types",
+ "scroll 0.12.0",
  "secp256k1",
  "serde",
  "serde_derive",

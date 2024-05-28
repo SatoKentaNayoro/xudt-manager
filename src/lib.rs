@@ -17,6 +17,8 @@ use ckb_types::{
     packed::{self, Byte32, CellDep, CellOutput, Script},
     prelude::{Builder, Entity, Pack},
 };
+use scroll::ctx::TryFromCtx;
+
 pub mod handler;
 
 /// A xUDT transaction builder implementation
@@ -146,6 +148,7 @@ impl CkbTransactionBuilder for XudtTransactionBuilder {
         }
 
         // collect inputs
+        let mut udt_amt_occupied = 0u128;
         for (input_index, input) in inputs.into_iter().enumerate() {
             tx.input(input.cell_input());
             tx.witness(packed::Bytes::default());
@@ -165,6 +168,23 @@ impl CkbTransactionBuilder for XudtTransactionBuilder {
                     .input_indices
                     .push(input_index);
             }
+
+            // check if we have enough udt
+            if input.live_cell.output_data.as_ref().len().eq(&16) {
+                let mut buf = [0u8; 16];
+                buf.copy_from_slice(input.live_cell.output_data.as_ref());
+                if let Ok((amt, _)) = u128::try_from_ctx(&buf, scroll::Endian::Little) {
+                    udt_amt_occupied += amt;
+                    if udt_amt_occupied < self.output_amount {
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+
 
             // check if we have enough inputs
             if change_builder.check_balance(input, &mut tx) {

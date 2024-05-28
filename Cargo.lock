@@ -443,7 +443,7 @@ dependencies = [
 [[package]]
 name = "ckb-sdk"
 version = "3.2.0"
-source = "git+https://github.com/SatoKentaNayoro/ckb-sdk-rust.git?branch=collect_live_cells_ignore_min_total_capacity#3b17bddfeceece9450da4eabdad0fd984009ada6"
+source = "git+https://github.com/SatoKentaNayoro/ckb-sdk-rust.git?branch=collect_live_cells_ignore_min_total_capacity#7fc18d106624aff8ab9bf95307a30ca32944cd1d"
 dependencies = [
  "anyhow",
  "bech32",

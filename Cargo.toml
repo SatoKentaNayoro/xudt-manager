@@ -13,6 +13,6 @@ secp256k1 = { version = "0.24", features = ["recovery"] }
 ckb-types = {version = "= 0.116.1"}
 ckb-jsonrpc-types = {version = "= 0.116.1"}
 ckb-hash = { version = "= 0.116.1"}
-ckb-sdk = { git = "https://github.com/nervosnetwork/ckb-sdk-rust.git", branch = "master" }
+ckb-sdk = { git = "https://github.com/SatoKentaNayoro/ckb-sdk-rust.git", branch = "collect_live_cells_ignore_min_total_capacity" }
 
 [dev-dependencies]

@@ -1,5 +1,7 @@
 use ckb_hash::{blake2b_256, new_blake2b};
 use ckb_jsonrpc_types::{TransactionView, Uint32};
+use ckb_sdk::rpc::ckb_indexer::SearchMode;
+use ckb_sdk::traits::PrimaryScriptType;
 use ckb_sdk::transaction::input::TransactionInput;
 use ckb_sdk::unlock::ScriptUnlocker;
 use ckb_sdk::{
@@ -12,7 +14,7 @@ use ckb_sdk::{
     },
     {Address, AddressPayload, CkbRpcClient, NetworkInfo, SECP256K1},
 };
-use ckb_types::core:: Capacity;
+use ckb_types::core::Capacity;
 use ckb_types::packed::Uint64;
 use ckb_types::prelude::Unpack;
 use ckb_types::{
@@ -28,8 +30,6 @@ use std::error::{Error as StdErr, Error};
 use std::str::FromStr;
 use std::thread::sleep;
 use std::time::Duration;
-use ckb_sdk::rpc::ckb_indexer::SearchMode;
-use ckb_sdk::traits::PrimaryScriptType;
 use xudt_manager::{handler::XudtHandler, XudtTransactionBuilder};
 
 const UNIQUE_ARGS_SIZE: usize = 20;
@@ -76,6 +76,7 @@ fn main() -> Result<(), Box<dyn StdErr>> {
         issue_lock_script.clone(),
         configuration,
         vec![],
+        network_info.clone(),
     );
 
     let self_defiened_lockscript = Script::new_builder()
@@ -83,7 +84,7 @@ fn main() -> Result<(), Box<dyn StdErr>> {
             h256!("0x733e5936c2e64772ff99b5f95d19a6ace0d99401c275a3619b1887eb11f81795").pack(),
         )
         .hash_type(ScriptHashType::Type.into())
-        .args(encode_token_info().pack())
+        .args(ISSUE_SYMBOL.as_bytes().pack())
         .build();
 
     let xudt_type = Script::new_builder()
@@ -115,8 +116,7 @@ fn main() -> Result<(), Box<dyn StdErr>> {
         .lock(issue_lock_script.clone())
         .build();
 
-    let min_total_capacity =
-        <Uint64 as Unpack<u64>>::unpack(&xudt_out_cell.capacity())
+    let min_total_capacity = <Uint64 as Unpack<u64>>::unpack(&xudt_out_cell.capacity())
         + <Uint64 as Unpack<u64>>::unpack(&dump_unique_out_cell.capacity())
         + <Uint64 as Unpack<u64>>::unpack(&change_out_cell.capacity())
         + Capacity::bytes(20).unwrap().as_u64() // unique args len 20
@@ -127,7 +127,7 @@ fn main() -> Result<(), Box<dyn StdErr>> {
         .out_point(
             OutPoint::new_builder()
                 .tx_hash(
-                    h256!("0x793e6bc1a1866a6c01a78823f1adf1710591f7fc1e24face0abf7bd31fe9d00f")
+                    h256!("0xa257da5cf5622a948bf8bb9e81153badbfe519481f754be33e764cb2f28155d3")
                         .pack(),
                 )
                 .index(0u32.pack())
@@ -141,8 +141,9 @@ fn main() -> Result<(), Box<dyn StdErr>> {
         issue_lock_script.clone(),
         network_info.clone(),
         self_defiened_lockscript.clone(),
-            udt_info_lockscript_dec.clone()
-    ).unwrap();
+        udt_info_lockscript_dec.clone(),
+    )
+    .unwrap();
 
     sleep(Duration::from_secs(60));
 
@@ -273,6 +274,7 @@ fn build_self_defined_lock_script_ckb_tx(
         sender_lock.clone(),
         configuration,
         vec![],
+        network_info.clone(),
     );
 
     let ckb_query = {
@@ -402,7 +404,7 @@ fn test_collect_cells() {
     };
 
     let result = cell_collector.collect_live_cells(&ckb_query, true).unwrap();
-    println!("{:?}",result)
+    println!("{:?}", result)
 }
 
 #[test]
@@ -414,12 +416,16 @@ fn test_script_hash() {
 
     let (issue_lock_script, issue_addr) = {
         let secret_key = secp256k1::SecretKey::from_slice(issue_private_key.clone().as_bytes())
-            .map_err(|err| format!("invalid sender secret key: {}", err)).unwrap();
+            .map_err(|err| format!("invalid sender secret key: {}", err))
+            .unwrap();
 
         let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &secret_key);
         let hash160 = blake2b_256(&pubkey.serialize()[..])[0..20].to_vec();
         let payload = AddressPayload::from_pubkey(&pubkey);
-        println!("Bytes::from(hash160).pack(): {:?}", Bytes::from(hash160.clone()).pack().as_slice());
+        println!(
+            "Bytes::from(hash160).pack(): {:?}",
+            Bytes::from(hash160.clone()).pack().as_slice()
+        );
         (
             Script::new_builder()
                 .code_hash(SIGHASH_TYPE_HASH.pack())
@@ -429,13 +435,21 @@ fn test_script_hash() {
             Address::new(network_info.network_type, payload, true),
         )
     };
-    println!("hash: {:?}", issue_lock_script.calc_script_hash().as_slice());
+    println!(
+        "hash: {:?}",
+        issue_lock_script.calc_script_hash().as_slice()
+    );
     println!("addr: {}", issue_addr);
-    println!("xudt code hash: {:?}",Script::new_builder()
-        .code_hash(
-            h256!("0x25c29dc317811a6f6f3985a7a9ebc4838bd388d19d0feeecf0bcd60f6c0975bb").pack(),
-        )
-        .hash_type(ScriptHashType::Type.into())
-        .args(Default::default())
-        .build().code_hash().as_slice())
+    println!(
+        "xudt code hash: {:?}",
+        Script::new_builder()
+            .code_hash(
+                h256!("0x25c29dc317811a6f6f3985a7a9ebc4838bd388d19d0feeecf0bcd60f6c0975bb").pack(),
+            )
+            .hash_type(ScriptHashType::Type.into())
+            .args(Default::default())
+            .build()
+            .code_hash()
+            .as_slice()
+    )
 }

@@ -98,6 +98,7 @@ fn main() -> Result<(), Box<dyn StdErr>> {
         sender_lock_script,
         configuration,
         xudt_args,
+        network_info.clone(),
     );
 
     builder.add_input(
@@ -132,11 +133,11 @@ fn main() -> Result<(), Box<dyn StdErr>> {
     let json_tx = ckb_jsonrpc_types::TransactionView::from(tx_with_groups.get_tx_view().clone());
     println!("tx: {}", serde_json::to_string_pretty(&json_tx).unwrap());
 
-    let tx_hash = CkbRpcClient::new(network_info.url.as_str())
-        .send_transaction(json_tx.inner, None)
-        .expect("send transaction");
-
-    println!(">>> tx {} sent! <<<", tx_hash);
+    // let tx_hash = CkbRpcClient::new(network_info.url.as_str())
+    //     .send_transaction(json_tx.inner, None)
+    //     .expect("send transaction");
+    //
+    // println!(">>> tx {} sent! <<<", tx_hash);
 
     Ok(())
 }

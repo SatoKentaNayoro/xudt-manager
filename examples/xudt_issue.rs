@@ -68,6 +68,7 @@ fn main() -> Result<(), Box<dyn StdErr>> {
         issue_lock_script.clone(),
         configuration,
         vec![],
+        network_info.clone(),
     );
 
     let xudt_type = Script::new_builder()
@@ -103,8 +104,7 @@ fn main() -> Result<(), Box<dyn StdErr>> {
         let mut query = CellQueryOptions::new_lock(issue_lock_script.clone());
         query.secondary_script_len_range = Some(ValueRangeOption::new_exact(0));
         query.data_len_range = Some(ValueRangeOption::new_exact(0));
-        query.min_total_capacity =
-            <Uint64 as Unpack<u64>>::unpack(&xudt_out_cell.capacity())
+        query.min_total_capacity = <Uint64 as Unpack<u64>>::unpack(&xudt_out_cell.capacity())
                 + <Uint64 as Unpack<u64>>::unpack(&dump_unique_out_cell.capacity())
                 + Capacity::bytes(20).unwrap().as_u64() // unique args len 20
                 + <Uint64 as Unpack<u64>>::unpack(&change_out_cell.capacity())
@@ -130,7 +130,7 @@ fn main() -> Result<(), Box<dyn StdErr>> {
                     ))
                     .build(),
             )
-                .pack(),
+            .pack(),
         )
         .build_exact_capacity(Capacity::bytes(encode_token_info().len()).unwrap())
         .unwrap();
@@ -201,11 +201,11 @@ fn main() -> Result<(), Box<dyn StdErr>> {
     let json_tx = ckb_jsonrpc_types::TransactionView::from(tx_with_groups.get_tx_view().clone());
     println!("tx: {}", serde_json::to_string_pretty(&json_tx).unwrap());
 
-    let tx_hash = CkbRpcClient::new(network_info.url.as_str())
-        .send_transaction(json_tx.inner, None)
-        .expect("send transaction");
-
-    println!(">>> tx {} sent! <<<", tx_hash);
+    // let tx_hash = CkbRpcClient::new(network_info.url.as_str())
+    //     .send_transaction(json_tx.inner, None)
+    //     .expect("send transaction");
+    //
+    // println!(">>> tx {} sent! <<<", tx_hash);
 
     Ok(())
 }
@@ -228,5 +228,5 @@ fn encode_token_info() -> Vec<u8> {
         &[ISSUE_SYMBOL.len() as u8],
         ISSUE_SYMBOL.as_bytes(),
     ]
-        .concat()
+    .concat()
 }

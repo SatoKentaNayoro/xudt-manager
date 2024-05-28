@@ -1,3 +1,4 @@
+use anyhow::Error;
 use std::collections::HashMap;
 
 use ckb_sdk::{
@@ -32,6 +33,7 @@ pub struct XudtTransactionBuilder {
     pub input_amount: u128,
     pub output_amount: u128,
     pub tx: TransactionBuilder,
+    pub network_info: NetworkInfo,
 }
 
 impl XudtTransactionBuilder {
@@ -40,6 +42,7 @@ impl XudtTransactionBuilder {
         capacity_provider: S,
         configuration: TransactionBuilderConfiguration,
         xudt_args: Vec<u8>,
+        network_info: NetworkInfo,
     ) -> Self {
         XudtTransactionBuilder {
             sender_lock: sender_lock.into(),
@@ -50,6 +53,7 @@ impl XudtTransactionBuilder {
             input_amount: 0,
             output_amount: 0,
             tx: Default::default(),
+            network_info,
         }
     }
 
@@ -126,11 +130,12 @@ impl CkbTransactionBuilder for XudtTransactionBuilder {
             sender_lock: _,
             capacity_provider,
             configuration,
-            xudt_args: _,
+            xudt_args,
             inputs,
             input_amount: _,
-            output_amount: _,
+            output_amount,
             mut tx,
+            network_info,
         } = self;
 
         let mut change_builder =
@@ -169,25 +174,21 @@ impl CkbTransactionBuilder for XudtTransactionBuilder {
                     .push(input_index);
             }
 
-            // check if we have enough udt
-            if input.live_cell.output_data.as_ref().len().eq(&16) {
-                let mut buf = [0u8; 16];
-                buf.copy_from_slice(input.live_cell.output_data.as_ref());
-                if let Ok((amt, _)) = u128::try_from_ctx(&buf, scroll::Endian::Little) {
-                    udt_amt_occupied += amt;
-                    if udt_amt_occupied < self.output_amount {
-                        continue;
-                    }
-                } else {
-                    continue;
+            if let Some(type_script) = input.live_cell.output.type_().to_opt() {
+                if type_script.code_hash().eq(&xudt_code_hash(&network_info))
+                    && type_script.args().as_slice().to_vec().eq(&xudt_args)
+                {
+                    let (udt_amt, _) = u128::try_from_ctx(
+                        input.live_cell.output_data.as_ref(),
+                        scroll::Endian::Little,
+                    )
+                    .map_err(|err| TxBuilderError::Other(Error::from(err)))?;
+                    udt_amt_occupied += udt_amt;
                 }
-            } else {
-                continue;
             }
 
-
-            // check if we have enough inputs
-            if change_builder.check_balance(input, &mut tx) {
+            // check if we have enough inputs and enough xudt
+            if change_builder.check_balance(input, &mut tx) && udt_amt_occupied >= output_amount {
                 // handle script groups
                 let mut script_groups: Vec<ScriptGroup> = lock_groups
                     .into_values()
@@ -219,7 +220,7 @@ impl CkbTransactionBuilder for XudtTransactionBuilder {
 
 pub fn build_xudt_type_script(network_info: &NetworkInfo, xudt_args: Vec<u8>) -> Script {
     // code_hash from https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0025-simple-udt/0025-simple-udt.md#notes
-    let xudt_script = match network_info.network_type {
+    match network_info.network_type {
         NetworkType::Mainnet => Script::new_builder()
             .code_hash(
                 h256!("0x50bd8d6680b8b9cf98b73f3c08faf8b2a21914311954118ad6609be6e78a1b95").pack(),
@@ -235,7 +236,17 @@ pub fn build_xudt_type_script(network_info: &NetworkInfo, xudt_args: Vec<u8>) ->
             .args(xudt_args.pack())
             .build(),
         _ => panic!("Unsupported network type"),
-    };
+    }
+}
 
-    xudt_script
+pub fn xudt_code_hash(network_info: &NetworkInfo) -> Byte32 {
+    match network_info.network_type {
+        NetworkType::Mainnet => {
+            h256!("0x50bd8d6680b8b9cf98b73f3c08faf8b2a21914311954118ad6609be6e78a1b95").pack()
+        }
+        NetworkType::Testnet => {
+            h256!("0x25c29dc317811a6f6f3985a7a9ebc4838bd388d19d0feeecf0bcd60f6c0975bb").pack()
+        }
+        _ => panic!("Unsupported network type"),
+    }
 }

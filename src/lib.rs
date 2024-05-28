@@ -18,6 +18,8 @@ use ckb_types::{
     packed::{self, Byte32, CellDep, CellOutput, Script},
     prelude::{Builder, Entity, Pack},
 };
+use ckb_types::bytes::Bytes;
+use ckb_types::prelude::{PackVec, Unpack};
 use scroll::ctx::TryFromCtx;
 
 pub mod handler;
@@ -176,7 +178,7 @@ impl CkbTransactionBuilder for XudtTransactionBuilder {
 
             if let Some(type_script) = input.live_cell.output.type_().to_opt() {
                 if type_script.code_hash().eq(&xudt_code_hash(&network_info))
-                    && type_script.args().as_slice().to_vec().eq(&xudt_args)
+                    && <packed::Bytes as Unpack<Bytes>>::unpack(&type_script.args()).as_ref().to_vec().eq(&xudt_args)
                 {
                     let (udt_amt, _) = u128::try_from_ctx(
                         input.live_cell.output_data.as_ref(),
